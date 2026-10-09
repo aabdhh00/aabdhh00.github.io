@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<title>Message Monitor</title>
+<style>
+  :root { --bg:#ffffff; --fg:#111827; --muted:#6b7280; --btn:#1d4ed8; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0f172a; --fg:#e5e7eb; --muted:#9ca3af; --btn:#3b82f6; } }
+  body { background:var(--bg); color:var(--fg); font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif; max-width:480px; margin:40px auto; padding:0 16px; }
+  h1 { font-size:18px; }
+  p.m { color:var(--muted); }
+  button { font-size:16px; padding:12px 20px; border:0; border-radius:8px; background:var(--btn); color:#fff; }
+  button:disabled { opacity:.5; }
+</style>
+</head>
+<body>
+<h1 id="title" dir="auto">Loading…</h1>
+<p class="m" id="due"></p>
+<p><button id="go" hidden></button></p>
+<p id="msg" dir="auto"></p>
+<p class="m" style="font-size:12px;margin-top:32px">Message Monitor</p>
+<script>
+  // Opening this page changes nothing; the action runs only when the button is pressed.
+  const API = "https://cgejsplaxpizlkkzmdeg.supabase.co/functions/v1/item-action";
+  const q = new URLSearchParams(location.hash.slice(1) || location.search.slice(1));
+  const req = { n: q.get("n") || "", t: q.get("t") || "", a: q.get("a") || "" };
+  history.replaceState(null, "", location.pathname); // keep the code out of the address bar and history
+  const $ = (id) => document.getElementById(id);
+  async function call(extra) {
+    const r = await fetch(API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...req, ...extra }) });
+    return { ok: r.ok, data: await r.json().catch(() => ({})) };
+  }
+  (async () => {
+    try {
+      const { ok, data } = await call({ peek: true });
+      if (!ok) { $("title").textContent = data.error || "This link isn't valid."; return; }
+      $("title").textContent = data.title;
+      if (data.due) $("due").textContent = "Due " + data.due;
+      if (data.used) { $("msg").textContent = "Already done."; return; }
+      const b = $("go");
+      b.textContent = data.label; b.hidden = false;
+      b.onclick = async () => {
+        b.disabled = true;
+        const r = await call({});
+        $("msg").textContent = (r.ok ? "✅ " : "⚠️ ") + (r.data.text || r.data.error || "Done.");
+        b.hidden = true;
+      };
+    } catch { $("title").textContent = "Couldn't reach the server. Try again."; }
+  })();
+</script>
+</body>
+</html>
